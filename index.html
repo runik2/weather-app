@@ -42,17 +42,20 @@
   .now{display:flex;align-items:center;gap:16px;margin:14px 0 6px}
   .now .icon{font-size:64px;line-height:1}
   .now .temp{font-size:64px;font-weight:200;letter-spacing:-.03em}
-  .desc{color:var(--muted);font-size:15px}
+  .desc{color:var(--muted);font-size:15px;margin-top:2px}
   .feels{color:var(--muted);font-size:14px;margin-top:6px}
+  .unit{font-size:12px;font-weight:500;color:var(--muted)}
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:22px}
   .cell{background:rgba(0,0,0,.15);border-radius:14px;padding:12px}
   .cell .k{font-size:12px;color:var(--muted);margin-bottom:4px}
   .cell .v{font-size:17px;font-weight:600}
   .hours-wrap{position:relative;margin-top:20px}
   .hours-wrap::after{
-    content:"";position:absolute;top:0;right:0;bottom:0;width:36px;pointer-events:none;
+    content:"";position:absolute;top:0;right:0;bottom:0;width:22px;pointer-events:none;
     background:linear-gradient(90deg,rgba(0,0,0,0),var(--fade));
+    opacity:0;transition:opacity .2s;
   }
+  .hours-wrap.can-scroll::after{opacity:.85}
   .hours{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
   .hours::-webkit-scrollbar{height:0}
   .hour{
@@ -85,11 +88,9 @@
     <div class="city" id="cityName">Казань</div>
     <div class="now">
       <div class="icon" id="icon">🌤</div>
-      <div>
-        <div class="temp" id="temp">—°</div>
-        <div class="desc" id="desc">загрузка…</div>
-      </div>
+      <div class="temp" id="temp">—°</div>
     </div>
+    <div class="desc" id="desc">загрузка…</div>
     <div class="feels" id="feels"></div>
 
     <div class="grid">
@@ -121,6 +122,13 @@ const DAYS = ["Вс","Пн","Вт","Ср","Чт","Пт","Сб"];
 
 const $ = id => document.getElementById(id);
 let controller = null;
+
+function updateScrollHint() {
+  const wrap = document.querySelector(".hours-wrap");
+  const el = $("hours");
+  if (!wrap || !el) return;
+  wrap.classList.toggle("can-scroll", el.scrollWidth > el.clientWidth + 4);
+}
 
 function mood(code, isDay) {
   const w = WMO[code] || ["—","🌡","cloud"];
@@ -163,7 +171,8 @@ async function load(place) {
     $("wind").textContent = Math.round(c.wind_speed_10m) + " м/с";
     $("hum").textContent = c.relative_humidity_2m + "%";
     $("feels").textContent = `Ощущается как ${Math.round(c.apparent_temperature)}°`;
-    $("press").textContent = Math.round(c.pressure_msl * 0.75006) + " мм";
+    $("press").innerHTML = `${Math.round(c.pressure_msl * 0.75006)} <span class="unit">мм рт. ст.</span>`;
+    updateScrollHint();
 
     // ближайшие 8 часов
     const nowIdx = d.hourly.time.findIndex(t => t.slice(0,13) === d.current.time.slice(0,13));
@@ -178,6 +187,7 @@ async function load(place) {
       </div>`;
     }).join("");
 
+    updateScrollHint();
     $("days").innerHTML = d.daily.time.map((t, i) => {
       const mm = mood(d.daily.weather_code[i], true);
       const label = i === 0 ? "Сегодня" : DAYS[new Date(t).getDay()];

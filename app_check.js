@@ -16,6 +16,13 @@ const DAYS = ["Вс","Пн","Вт","Ср","Чт","Пт","Сб"];
 const $ = id => document.getElementById(id);
 let controller = null;
 
+function updateScrollHint() {
+  const wrap = document.querySelector(".hours-wrap");
+  const el = $("hours");
+  if (!wrap || !el) return;
+  wrap.classList.toggle("can-scroll", el.scrollWidth > el.clientWidth + 4);
+}
+
 function mood(code, isDay) {
   const w = WMO[code] || ["—","🌡","cloud"];
   return { text: w[0], icon: w[1], theme: isDay ? (w[2] === "day" ? "day" : w[2]) : "night" };
@@ -57,7 +64,8 @@ async function load(place) {
     $("wind").textContent = Math.round(c.wind_speed_10m) + " м/с";
     $("hum").textContent = c.relative_humidity_2m + "%";
     $("feels").textContent = `Ощущается как ${Math.round(c.apparent_temperature)}°`;
-    $("press").textContent = Math.round(c.pressure_msl * 0.75006) + " мм";
+    $("press").innerHTML = `${Math.round(c.pressure_msl * 0.75006)} <span class="unit">мм рт. ст.</span>`;
+    updateScrollHint();
 
     // ближайшие 8 часов
     const nowIdx = d.hourly.time.findIndex(t => t.slice(0,13) === d.current.time.slice(0,13));
@@ -72,6 +80,7 @@ async function load(place) {
       </div>`;
     }).join("");
 
+    updateScrollHint();
     $("days").innerHTML = d.daily.time.map((t, i) => {
       const mm = mood(d.daily.weather_code[i], true);
       const label = i === 0 ? "Сегодня" : DAYS[new Date(t).getDay()];

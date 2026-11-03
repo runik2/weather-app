@@ -8,7 +8,7 @@
   *{box-sizing:border-box;margin:0;padding:0}
   :root{
     --bg1:#0b1020; --bg2:#1a2340; --card:rgba(255,255,255,.07);
-    --line:rgba(255,255,255,.12); --text:#f3f5f9; --muted:#9aa4b8; --accent:#4ea8ff;
+    --line:rgba(255,255,255,.12); --text:#f3f5f9; --muted:#9aa4b8; --accent:#4ea8ff; --fade:#141b2e;
   }
   body{
     min-height:100vh; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -16,11 +16,11 @@
     display:flex; align-items:center; justify-content:center; padding:20px;
     transition:background .8s ease;
   }
-  body.day{--bg1:#1b6fc4;--bg2:#7fb6e8;--card:rgba(255,255,255,.18);--line:rgba(255,255,255,.3);--muted:#e6efff}
-  body.night{--bg1:#070a14;--bg2:#151c33}
-  body.rain{--bg1:#232c3d;--bg2:#3d4b66}
-  body.cloud{--bg1:#2a3446;--bg2:#4a5871}
-  body.snow{--bg1:#38465c;--bg2:#8ba0bb}
+  body.day{--bg1:#1b6fc4;--bg2:#7fb6e8;--card:rgba(255,255,255,.18);--line:rgba(255,255,255,.3);--muted:#e6efff;--fade:#5b9bd5}
+  body.night{--bg1:#070a14;--bg2:#151c33;--fade:#101527}
+  body.rain{--bg1:#232c3d;--bg2:#3d4b66;--fade:#313b4f}
+  body.cloud{--bg1:#2a3446;--bg2:#4a5871;--fade:#3b475c}
+  body.snow{--bg1:#38465c;--bg2:#8ba0bb;--fade:#6a7f9b}
   .app{width:100%;max-width:420px}
   .search{display:flex;gap:8px;margin-bottom:18px}
   .search input{
@@ -48,7 +48,12 @@
   .cell{background:rgba(0,0,0,.15);border-radius:14px;padding:12px}
   .cell .k{font-size:12px;color:var(--muted);margin-bottom:4px}
   .cell .v{font-size:17px;font-weight:600}
-  .hours{display:flex;gap:10px;overflow-x:auto;margin-top:20px;padding-bottom:6px}
+  .hours-wrap{position:relative;margin-top:20px}
+  .hours-wrap::after{
+    content:"";position:absolute;top:0;right:0;bottom:0;width:36px;pointer-events:none;
+    background:linear-gradient(90deg,rgba(0,0,0,0),var(--fade));
+  }
+  .hours{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
   .hours::-webkit-scrollbar{height:0}
   .hour{
     min-width:62px;text-align:center;padding:10px 6px;border-radius:14px;
@@ -90,10 +95,10 @@
     <div class="grid">
       <div class="cell"><div class="k">Ветер</div><div class="v" id="wind">—</div></div>
       <div class="cell"><div class="k">Влажность</div><div class="v" id="hum">—</div></div>
-      <div class="cell"><div class="k">Ощущается</div><div class="v" id="feels2">—</div></div>
+      <div class="cell"><div class="k">Давление</div><div class="v" id="press">—</div></div>
     </div>
 
-    <div class="hours" id="hours"></div>
+    <div class="hours-wrap"><div class="hours" id="hours"></div></div>
     <div class="days" id="days"></div>
     <div class="status" id="status"></div>
   </div>
@@ -142,7 +147,7 @@ async function load(place) {
     $("cityName").textContent = g.country ? `${g.name}, ${g.country}` : g.name;
 
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${g.lat}&longitude=${g.lon}`
-      + `&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,wind_speed_10m`
+      + `&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,wind_speed_10m,pressure_msl`
       + `&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min`
       + `&timezone=auto&forecast_days=5`;
     const r = await fetch(url, { signal: controller.signal });
@@ -158,7 +163,7 @@ async function load(place) {
     $("wind").textContent = Math.round(c.wind_speed_10m) + " м/с";
     $("hum").textContent = c.relative_humidity_2m + "%";
     $("feels").textContent = `Ощущается как ${Math.round(c.apparent_temperature)}°`;
-    $("feels2").textContent = Math.round(c.apparent_temperature) + "°";
+    $("press").textContent = Math.round(c.pressure_msl * 0.75006) + " мм";
 
     // ближайшие 8 часов
     const nowIdx = d.hourly.time.findIndex(t => t.slice(0,13) === d.current.time.slice(0,13));

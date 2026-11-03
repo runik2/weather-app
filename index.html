@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Погода — Казань</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg1:#0b1020; --bg2:#1a2340; --card:rgba(255,255,255,.07);
+    --line:rgba(255,255,255,.12); --text:#f3f5f9; --muted:#9aa4b8; --accent:#4ea8ff;
+  }
+  body{
+    min-height:100vh; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    background:linear-gradient(160deg,var(--bg1),var(--bg2)); color:var(--text);
+    display:flex; align-items:center; justify-content:center; padding:20px;
+    transition:background .8s ease;
+  }
+  body.day{--bg1:#1b6fc4;--bg2:#7fb6e8;--card:rgba(255,255,255,.18);--line:rgba(255,255,255,.3);--muted:#e6efff}
+  body.night{--bg1:#070a14;--bg2:#151c33}
+  body.rain{--bg1:#232c3d;--bg2:#3d4b66}
+  body.cloud{--bg1:#2a3446;--bg2:#4a5871}
+  body.snow{--bg1:#38465c;--bg2:#8ba0bb}
+  .app{width:100%;max-width:420px}
+  .search{display:flex;gap:8px;margin-bottom:18px}
+  .search input{
+    flex:1;padding:14px 16px;border-radius:14px;border:1px solid var(--line);
+    background:var(--card);color:var(--text);font-size:16px;outline:none;backdrop-filter:blur(12px);
+  }
+  .search input::placeholder{color:var(--muted)}
+  .search input:focus{border-color:var(--accent)}
+  .search button{
+    padding:0 18px;border-radius:14px;border:none;background:var(--accent);color:#04121f;
+    font-size:16px;font-weight:600;cursor:pointer;
+  }
+  .search button:active{transform:scale(.97)}
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:24px;
+    padding:26px;backdrop-filter:blur(18px);box-shadow:0 20px 60px rgba(0,0,0,.3);
+  }
+  .city{font-size:15px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  .now{display:flex;align-items:center;gap:16px;margin:14px 0 6px}
+  .now .icon{font-size:64px;line-height:1}
+  .now .temp{font-size:64px;font-weight:200;letter-spacing:-.03em}
+  .desc{color:var(--muted);font-size:15px}
+  .feels{color:var(--muted);font-size:14px;margin-top:6px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:22px}
+  .cell{background:rgba(0,0,0,.15);border-radius:14px;padding:12px}
+  .cell .k{font-size:12px;color:var(--muted);margin-bottom:4px}
+  .cell .v{font-size:17px;font-weight:600}
+  .hours{display:flex;gap:10px;overflow-x:auto;margin-top:20px;padding-bottom:6px}
+  .hours::-webkit-scrollbar{height:0}
+  .hour{
+    min-width:62px;text-align:center;padding:10px 6px;border-radius:14px;
+    background:rgba(0,0,0,.15);font-size:13px;
+  }
+  .hour .h{color:var(--muted);margin-bottom:6px}
+  .hour .i{font-size:22px;margin-bottom:4px}
+  .hour .t{font-weight:600}
+  .days{margin-top:18px}
+  .day-row{
+    display:flex;align-items:center;gap:12px;padding:12px 4px;
+    border-top:1px solid var(--line);font-size:15px;
+  }
+  .day-row .name{flex:1}
+  .day-row .i{font-size:20px}
+  .day-row .r{color:var(--muted);text-align:right;min-width:90px}
+  .status{color:var(--muted);font-size:13px;text-align:center;margin-top:14px;min-height:18px}
+  .err{color:#ff8f8f}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="search">
+    <input id="city" placeholder="Город — например, Казань" autocomplete="off">
+    <button id="go">→</button>
+  </div>
+
+  <div class="card" id="card">
+    <div class="city" id="cityName">Казань</div>
+    <div class="now">
+      <div class="icon" id="icon">🌤</div>
+      <div>
+        <div class="temp" id="temp">—°</div>
+        <div class="desc" id="desc">загрузка…</div>
+      </div>
+    </div>
+    <div class="feels" id="feels"></div>
+
+    <div class="grid">
+      <div class="cell"><div class="k">Ветер</div><div class="v" id="wind">—</div></div>
+      <div class="cell"><div class="k">Влажность</div><div class="v" id="hum">—</div></div>
+      <div class="cell"><div class="k">Ощущается</div><div class="v" id="feels2">—</div></div>
+    </div>
+
+    <div class="hours" id="hours"></div>
+    <div class="days" id="days"></div>
+    <div class="status" id="status"></div>
+  </div>
+</div>
+
+<script>
+const WMO = {
+  0:["Ясно","☀️","day"], 1:["Малооблачно","🌤","day"], 2:["Переменная облачность","⛅","cloud"],
+  3:["Пасмурно","☁️","cloud"], 45:["Туман","🌫","cloud"], 48:["Изморозь","🌫","cloud"],
+  51:["Лёгкая морось","🌦","rain"], 53:["Морось","🌦","rain"], 55:["Сильная морось","🌧","rain"],
+  61:["Небольшой дождь","🌦","rain"], 63:["Дождь","🌧","rain"], 65:["Сильный дождь","🌧","rain"],
+  66:["Ледяной дождь","🌧","rain"], 67:["Ледяной дождь","🌧","rain"],
+  71:["Небольшой снег","🌨","snow"], 73:["Снег","🌨","snow"], 75:["Сильный снег","❄️","snow"],
+  77:["Снежная крупа","🌨","snow"],
+  80:["Ливень","🌦","rain"], 81:["Ливень","🌧","rain"], 82:["Силный ливень","⛈","rain"],
+  85:["Снегопад","🌨","snow"], 86:["Сильный снегопад","❄️","snow"],
+  95:["Гроза","⛈","rain"], 96:["Гроза с градом","⛈","rain"], 99:["Гроза с градом","⛈","rain"]
+};
+const DAYS = ["Вс","Пн","Вт","Ср","Чт","Пт","Сб"];
+
+const $ = id => document.getElementById(id);
+let controller = null;
+
+function mood(code, isDay) {
+  const w = WMO[code] || ["—","🌡","cloud"];
+  return { text: w[0], icon: w[1], theme: isDay ? (w[2] === "day" ? "day" : w[2]) : "night" };
+}
+
+async function geocode(name) {
+  const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=ru&format=json`;
+  const r = await fetch(url);
+  const d = await r.json();
+  if (!d.results || !d.results.length) throw new Error("Город не найден");
+  const g = d.results[0];
+  return { lat: g.latitude, lon: g.longitude, name: g.name, country: g.country };
+}
+
+async function load(place) {
+  $("status").textContent = "обновляю…";
+  $("status").classList.remove("err");
+  if (controller) controller.abort();
+  controller = new AbortController();
+
+  try {
+    const g = place || await geocode($("city").value.trim() || "Казань");
+    $("cityName").textContent = g.country ? `${g.name}, ${g.country}` : g.name;
+
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${g.lat}&longitude=${g.lon}`
+      + `&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,wind_speed_10m`
+      + `&hourly=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min`
+      + `&timezone=auto&forecast_days=5`;
+    const r = await fetch(url, { signal: controller.signal });
+    const d = await r.json();
+
+    const c = d.current;
+    const m = mood(c.weather_code, c.is_day === 1);
+    document.body.className = m.theme;
+
+    $("icon").textContent = m.icon;
+    $("temp").textContent = Math.round(c.temperature_2m) + "°";
+    $("desc").textContent = m.text;
+    $("wind").textContent = Math.round(c.wind_speed_10m) + " м/с";
+    $("hum").textContent = c.relative_humidity_2m + "%";
+    $("feels").textContent = `Ощущается как ${Math.round(c.apparent_temperature)}°`;
+    $("feels2").textContent = Math.round(c.apparent_temperature) + "°";
+
+    // ближайшие 8 часов
+    const nowIdx = d.hourly.time.findIndex(t => t.slice(0,13) === d.current.time.slice(0,13));
+    const start = nowIdx < 0 ? 0 : nowIdx;
+    $("hours").innerHTML = d.hourly.time.slice(start, start + 8).map((t, i) => {
+      const code = d.hourly.weather_code[start + i];
+      const mm = mood(code, d.current.is_day === 1);
+      return `<div class="hour">
+        <div class="h">${new Date(t).getHours()}:00</div>
+        <div class="i">${mm.icon}</div>
+        <div class="t">${Math.round(d.hourly.temperature_2m[start + i])}°</div>
+      </div>`;
+    }).join("");
+
+    $("days").innerHTML = d.daily.time.map((t, i) => {
+      const mm = mood(d.daily.weather_code[i], true);
+      const label = i === 0 ? "Сегодня" : DAYS[new Date(t).getDay()];
+      return `<div class="day-row">
+        <div class="name">${label}</div>
+        <div class="i">${mm.icon}</div>
+        <div class="r">${Math.round(d.daily.temperature_2m_min[i])}° / ${Math.round(d.daily.temperature_2m_max[i])}°</div>
+      </div>`;
+    }).join("");
+
+    $("status").textContent = "обновлено " + new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+    localStorage.setItem("lastCity", g.name);
+  } catch (e) {
+    if (e.name === "AbortError") return;
+    $("status").textContent = e.message || "Не удалось загрузить погоду";
+    $("status").classList.add("err");
+  }
+}
+
+$("go").addEventListener("click", () => load());
+$("city").addEventListener("keydown", e => { if (e.key === "Enter") load(); });
+
+const saved = localStorage.getItem("lastCity");
+if (saved) $("city").value = saved;
+load();
+</script>
+</body>
+</html>
